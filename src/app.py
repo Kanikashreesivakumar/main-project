@@ -17,6 +17,41 @@ class AppConfig:
     camera_index: int = 0
     mirror: bool = True
     max_num_hands: int = 1
+    camera_verbose: bool = False
+
+
+def _open_camera(preferred_index: int, *, verbose: bool = False) -> cv2.VideoCapture:
+    # On Windows, some cameras work only with specific backends.
+    # We try a few common ones before giving up.
+    backends: list[tuple[str, int]] = []
+    if hasattr(cv2, "CAP_DSHOW"):
+        backends.append(("DSHOW", int(cv2.CAP_DSHOW)))
+    if hasattr(cv2, "CAP_MSMF"):
+        backends.append(("MSMF", int(cv2.CAP_MSMF)))
+    backends.append(("AUTO", 0))  # let OpenCV choose
+
+    indices_to_try = [preferred_index] + [i for i in range(0, 6) if i != preferred_index]
+
+    attempted: list[str] = []
+
+    for backend_name, backend in backends:
+        for idx in indices_to_try:
+            attempted.append(f"{backend_name}:{idx}")
+            cap = cv2.VideoCapture(idx, backend) if backend != 0 else cv2.VideoCapture(idx)
+            if cap.isOpened():
+                if verbose:
+                    print(f"[camera] Opened backend={backend_name} index={idx}")
+                return cap
+            cap.release()
+
+    if verbose:
+        print("[camera] Failed attempts:", ", ".join(attempted))
+
+    raise RuntimeError(
+        "Could not open a webcam. Tried indices 0-5 across common backends (preferred index: "
+        f"{preferred_index}). Close other apps using the camera and check Windows camera "
+        "permissions for desktop apps."
+    )
 
 
 def _draw_landmarks(frame_bgr: np.ndarray, landmarks_px: dict[int, tuple[float, float]]) -> None:
@@ -47,9 +82,7 @@ def _draw_hud(frame_bgr: np.ndarray, fps: float, gesture_text: str) -> None:
 
 
 def run(config: AppConfig) -> None:
-    cap = cv2.VideoCapture(config.camera_index)
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera index {config.camera_index}")
+    cap = _open_camera(config.camera_index, verbose=config.camera_verbose)
 
     tracker = HandTracker(max_num_hands=config.max_num_hands)
     detector = GestureDetector(pinch_threshold=0.35)
