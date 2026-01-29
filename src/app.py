@@ -21,8 +21,7 @@ class AppConfig:
 
 
 def _open_camera(preferred_index: int, *, verbose: bool = False) -> cv2.VideoCapture:
-    # On Windows, some cameras work only with specific backends.
-    # We try a few common ones before giving up.
+      
     backends: list[tuple[str, int]] = []
     if hasattr(cv2, "CAP_DSHOW"):
         backends.append(("DSHOW", int(cv2.CAP_DSHOW)))
