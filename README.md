@@ -28,6 +28,14 @@ python -m src.app --list-cameras
 python -m src.app --camera-index 1
 ```
 
+On Windows, you can also try forcing a backend:
+
+```bash
+python -m src.app --list-cameras
+python -m src.app --camera-index 0 --backend DSHOW
+python -m src.app --camera-index 0 --backend MSMF
+```
+
 ## Controls
 
 - **Open palm (hold ~0.5s)**: create a new block at the palm position

@@ -19,19 +19,33 @@ class AppConfig:
     mirror: bool = True
     max_num_hands: int = 1
     camera_verbose: bool = False
+    camera_backend: str = "AUTO"  # AUTO, DSHOW, MSMF
 
 
 def _list_cameras(max_index: int = 10) -> int:
     print("[camera] Probing camera indices...")
     found_any = False
 
+    backends: list[tuple[str, int]] = []
+    if hasattr(cv2, "CAP_DSHOW"):
+        backends.append(("DSHOW", int(cv2.CAP_DSHOW)))
+    if hasattr(cv2, "CAP_MSMF"):
+        backends.append(("MSMF", int(cv2.CAP_MSMF)))
+    backends.append(("AUTO", 0))
+
     for idx in range(0, max_index + 1):
-        cap = cv2.VideoCapture(idx)
-        ok = cap.isOpened()
-        cap.release()
-        if ok:
+        ok_backends: list[str] = []
+        for backend_name, backend in backends:
+            cap = cv2.VideoCapture(idx, backend) if backend != 0 else cv2.VideoCapture(idx)
+            ok = cap.isOpened()
+            cap.release()
+            if ok:
+                ok_backends.append(backend_name)
+
+        if ok_backends:
             found_any = True
-            print(f"[camera] index={idx} OK")
+            backends_txt = ",".join(ok_backends)
+            print(f"[camera] index={idx} OK (backends: {backends_txt})")
 
     if not found_any:
         print("[camera] No cameras opened via OpenCV.")
@@ -45,6 +59,13 @@ def _list_cameras(max_index: int = 10) -> int:
 def _parse_args() -> AppConfig | tuple[AppConfig, bool, int]:
     parser = argparse.ArgumentParser(description="Real-time Hand Gesture Blocks (OpenCV + MediaPipe)")
     parser.add_argument("--camera-index", type=int, default=0, help="Preferred webcam index (try 0, 1, 2, …)")
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default="AUTO",
+        choices=["AUTO", "DSHOW", "MSMF"],
+        help="Force camera backend (Windows: DSHOW often works when AUTO fails)",
+    )
     parser.add_argument("--max-hands", type=int, default=1, help="Maximum number of hands to track")
     parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring (default is mirrored)")
     parser.add_argument("--camera-verbose", action="store_true", help="Print camera backend/index attempts")
@@ -57,11 +78,12 @@ def _parse_args() -> AppConfig | tuple[AppConfig, bool, int]:
         mirror=not ns.no_mirror,
         max_num_hands=max(1, int(ns.max_hands)),
         camera_verbose=bool(ns.camera_verbose),
+        camera_backend=str(ns.backend),
     )
     return cfg, bool(ns.list_cameras), int(ns.probe_max_index)
 
 
-def _open_camera(preferred_index: int, *, verbose: bool = False) -> cv2.VideoCapture:
+def _open_camera(preferred_index: int, *, verbose: bool = False, backend_preference: str = "AUTO") -> cv2.VideoCapture:
       
     backends: list[tuple[str, int]] = []
     if hasattr(cv2, "CAP_DSHOW"):
@@ -69,6 +91,12 @@ def _open_camera(preferred_index: int, *, verbose: bool = False) -> cv2.VideoCap
     if hasattr(cv2, "CAP_MSMF"):
         backends.append(("MSMF", int(cv2.CAP_MSMF)))
     backends.append(("AUTO", 0)) 
+
+    backend_preference = (backend_preference or "AUTO").upper()
+    if backend_preference != "AUTO":
+        backends = [b for b in backends if b[0] == backend_preference]
+        if not backends:
+            backends = [("AUTO", 0)]
 
     indices_to_try = [preferred_index] + [i for i in range(0, 6) if i != preferred_index]
 
@@ -122,7 +150,11 @@ def _draw_hud(frame_bgr: np.ndarray, fps: float, gesture_text: str) -> None:
 
 
 def run(config: AppConfig) -> None:
-    cap = _open_camera(config.camera_index, verbose=config.camera_verbose)
+    cap = _open_camera(
+        config.camera_index,
+        verbose=config.camera_verbose,
+        backend_preference=config.camera_backend,
+    )
 
     tracker = HandTracker(max_num_hands=config.max_num_hands)
     detector = GestureDetector(pinch_threshold=0.35)
