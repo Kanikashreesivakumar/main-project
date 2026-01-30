@@ -21,6 +21,13 @@ pip install -r requirements.txt
 python -m src.app
 ```
 
+If you get "Could not open a webcam", try listing cameras and selecting a different index:
+
+```bash
+python -m src.app --list-cameras
+python -m src.app --camera-index 1
+```
+
 ## Controls
 
 - **Open palm (hold ~0.5s)**: create a new block at the palm position

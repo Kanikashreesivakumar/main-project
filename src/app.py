@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import time
-from dataclasses import dataclass
+from dataclasses  import dataclass
 from typing import Optional
 
 import cv2
@@ -20,6 +21,46 @@ class AppConfig:
     camera_verbose: bool = False
 
 
+def _list_cameras(max_index: int = 10) -> int:
+    print("[camera] Probing camera indices...")
+    found_any = False
+
+    for idx in range(0, max_index + 1):
+        cap = cv2.VideoCapture(idx)
+        ok = cap.isOpened()
+        cap.release()
+        if ok:
+            found_any = True
+            print(f"[camera] index={idx} OK")
+
+    if not found_any:
+        print("[camera] No cameras opened via OpenCV.")
+        print("[camera] Tips: close Zoom/Teams/Camera app; enable Windows Settings → Privacy & security → Camera → Allow desktop apps.")
+        print("[camera] If using Remote Desktop/VM, ensure camera passthrough is enabled.")
+        return 1
+
+    return 0
+
+
+def _parse_args() -> AppConfig | tuple[AppConfig, bool, int]:
+    parser = argparse.ArgumentParser(description="Real-time Hand Gesture Blocks (OpenCV + MediaPipe)")
+    parser.add_argument("--camera-index", type=int, default=0, help="Preferred webcam index (try 0, 1, 2, …)")
+    parser.add_argument("--max-hands", type=int, default=1, help="Maximum number of hands to track")
+    parser.add_argument("--no-mirror", action="store_true", help="Disable mirroring (default is mirrored)")
+    parser.add_argument("--camera-verbose", action="store_true", help="Print camera backend/index attempts")
+    parser.add_argument("--list-cameras", action="store_true", help="Probe camera indices and exit")
+    parser.add_argument("--probe-max-index", type=int, default=10, help="Max index to probe when using --list-cameras")
+    ns = parser.parse_args()
+
+    cfg = AppConfig(
+        camera_index=ns.camera_index,
+        mirror=not ns.no_mirror,
+        max_num_hands=max(1, int(ns.max_hands)),
+        camera_verbose=bool(ns.camera_verbose),
+    )
+    return cfg, bool(ns.list_cameras), int(ns.probe_max_index)
+
+
 def _open_camera(preferred_index: int, *, verbose: bool = False) -> cv2.VideoCapture:
       
     backends: list[tuple[str, int]] = []
@@ -27,7 +68,7 @@ def _open_camera(preferred_index: int, *, verbose: bool = False) -> cv2.VideoCap
         backends.append(("DSHOW", int(cv2.CAP_DSHOW)))
     if hasattr(cv2, "CAP_MSMF"):
         backends.append(("MSMF", int(cv2.CAP_MSMF)))
-    backends.append(("AUTO", 0))  # let OpenCV choose
+    backends.append(("AUTO", 0)) 
 
     indices_to_try = [preferred_index] + [i for i in range(0, 6) if i != preferred_index]
 
@@ -149,4 +190,8 @@ def run(config: AppConfig) -> None:
 
 
 if __name__ == "__main__":
-    run(AppConfig())
+    config, list_cameras, probe_max_index = _parse_args()
+    if list_cameras:
+        raise SystemExit(_list_cameras(max_index=probe_max_index))
+    run(config)
+   
