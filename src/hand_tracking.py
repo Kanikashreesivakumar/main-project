@@ -48,9 +48,7 @@ class HandTracker:
         tracking_confidence: float = 0.6,
         model_complexity: int = 0,
     ) -> None:
-        # MediaPipe has historically exposed the classic Hands API via `mediapipe.solutions.hands`.
-        # On some Python versions (notably very new releases), wheels may be missing and pip can
-        # install a package variant that does not ship the `solutions` modules.
+
         try:
             mp_hands = mp.solutions.hands  # type: ignore[attr-defined]
         except AttributeError as e:
