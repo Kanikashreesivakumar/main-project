@@ -8,6 +8,12 @@ Academic, rule-based hand gesture interaction demo:
 
 ## Setup
 
+Recommended Python: **3.11 or 3.12**.
+
+Note: On very new Python versions (e.g., 3.13), `mediapipe` may install without the classic
+`mediapipe.solutions` modules, which this demo uses (`Hands`). If you hit an error about
+`mediapipe` missing `solutions`, switch to Python 3.11/3.12 and recreate the virtual environment.
+
 ```bash
 python -m venv .venv
 # Windows PowerShell

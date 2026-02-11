@@ -19,7 +19,7 @@ class AppConfig:
     mirror: bool = True
     max_num_hands: int = 1
     camera_verbose: bool = False
-    camera_backend: str = "AUTO"  # AUTO, DSHOW, MSMF
+    camera_backend: str = "AUTO"  
 
 
 def _list_cameras(max_index: int = 10) -> int:

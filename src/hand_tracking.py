@@ -48,7 +48,27 @@ class HandTracker:
         tracking_confidence: float = 0.6,
         model_complexity: int = 0,
     ) -> None:
-        self._mp_hands = mp.solutions.hands
+        # MediaPipe has historically exposed the classic Hands API via `mediapipe.solutions.hands`.
+        # On some Python versions (notably very new releases), wheels may be missing and pip can
+        # install a package variant that does not ship the `solutions` modules.
+        try:
+            mp_hands = mp.solutions.hands  # type: ignore[attr-defined]
+        except AttributeError as e:
+            mp_file = getattr(mp, "__file__", None)
+            mp_ver = getattr(mp, "__version__", None)
+            raise RuntimeError(
+                "MediaPipe 'solutions' API is not available in the installed package. "
+                "This project uses the classic Hands solution (mediapipe.solutions.hands).\n\n"
+                f"Detected mediapipe version: {mp_ver} ({mp_file})\n"
+                "Fix: use Python 3.11 or 3.12, recreate the virtual environment, then reinstall requirements.\n"
+                "Example (PowerShell):\n"
+                "  Remove-Item -Recurse -Force .venv\n"
+                "  py -3.12 -m venv .venv\n"
+                "  .\\.venv\\Scripts\\Activate.ps1\n"
+                "  python -m pip install -r requirements.txt"
+            ) from e
+
+        self._mp_hands = mp_hands
         self._hands = self._mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=max_num_hands,
